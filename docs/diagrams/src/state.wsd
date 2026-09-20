@@ -1,0 +1,24 @@
+@startuml
+
+[*] --> Idle
+
+Idle -left-> Heating : too cool [restart time >= 5 mins]
+Heating -right-> Idle : ok
+
+Idle -right-> Cooling : too hot
+Cooling -left-> Idle : ok
+
+Heating --> Failure : failure
+Cooling --> Failure : failure
+Failure -up-> Idle : failure cleared
+
+Heating : entry / startup
+Heating : exit / shutDown
+
+Cooling : entry / startup
+Cooling : exit / shutDown
+
+Failure : entry / start alarm
+Failure : exit / stop alarm
+
+@enduml
