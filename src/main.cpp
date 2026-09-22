@@ -1,20 +1,23 @@
 #include <Arduino.h>
 #include <avr/interrupt.h>
+#include <context.h>
+#include <State.h>
+#include <Idle.h>
+#include <Heater.h>
+#include <Cooler.h>
+#include <Failure.h>
 
-enum State
-{
-  Idle,
-  Heating,
-  Cooling,
-  Failure
-};
 
-State state = State::Idle; // Define state variable and set the initial state
 
-bool failure, ok, too_cool, too_hot, failure_cleared;
+// Application
+
+Context *temp_control;
+
+bool failure, too_cool, too_hot, failure_cleared;
 
 int time_delay = 200;
-unsigned long count_heating = 1*60*1000/time_delay; // so it can start heating as soon as the program is run
+unsigned long count_heating = 5UL*60*1000/time_delay;
+int applience_time_count = 0;
 
 
 int main()
@@ -23,13 +26,12 @@ int main()
   Serial.begin(9600);
   sei(); // Interrupts must be enabled for Serial receive buffers to work
 
+  temp_control = new Context(new Idle);
 
-  while (1)
+  while (true)
   {
     int c = 0; // for incoming serial data
 
-    failure = ok = too_cool = too_hot = failure_cleared = false;
-    
     if (Serial.available() > 0)
     {
       c = Serial.read();
@@ -37,6 +39,7 @@ int main()
       Serial.println((char)c);
     }
 
+    failure = too_cool = too_hot = failure_cleared = false;
 
     if (c=='h')
       too_hot = true;
@@ -44,105 +47,31 @@ int main()
       too_cool = true;
     else if (c=='f')
       failure = true;
-    else if (c=='o')
-      ok = true;
     else if (c=='r')
       failure_cleared = true;
 
-      // you can compare the value received to a character constant, like 'h'.
-    switch (state)
-  {
+    // wait for some time
+    temp_control->do_work();
 
-
-  case State::Idle:
-    if (too_cool)
-    {
-      // State::A exit action
-      // event1 transition action
-      // set new target state
-      if (count_heating*time_delay/1000 >= 1*60)
-      {
-        Serial.println("Idle -> Heating");
-        state = State::Heating;
-      }
-      else
-      {
-        Serial.println("Too cool ignored: heater must stay off for 5 minutes before restarting");
-      }
-
-      // target state entry action
-    }
-    
+    // if event1 occurred
     if (too_hot)
-    {
-      // State::A exit action
-      // event1 transition action
-      // set new target state
-      Serial.println("Idle -> Cooling");
-      state = State::Cooling;
-      // target state entry action
-    }
-    break;
+      temp_control->on_too_hot();
 
-  case State::Heating:
-    if (ok)
-    {
-      // State::A exit action
-      count_heating = 0;
-      // event1 transition action
-      // set new target state
-      Serial.println("Heating -> Idle");
-      state = State::Idle;
-      // target state entry action
-    }
-    
-    if (failure)
-    {
-      // State::A exit action
-      count_heating = 0;
-      // event1 transition action
-      // set new target state
-      Serial.println("Heating -> Failure");
-      state = State::Failure;
-      // target state entry action
-    }
-    break;
-  
-  case State::Cooling:
-    if (ok)
-    {
-      // State::A exit action
-      // event1 transition action
-      // set new target state
-      Serial.println("Cooling -> Idle");
-      state = State::Idle;
-      // target state entry action
-    }
+    // if event2 occurred
+    if (too_cool)
+      temp_control->on_too_cool();
 
     if (failure)
-    {
-      // State::A exit action
-      // event1 transition action
-      // set new target state
-      Serial.println("Cooling -> Failure");
-      state = State::Failure;
-      // target state entry action
-    }
-    break;
-  
-  case State::Failure:
+      temp_control->on_failure();
+
     if (failure_cleared)
-    {
-      // State::A exit action
-      // event1 transition action
-      // set new target state
-      Serial.println("Failure -> Idle");
-      state = State::Idle;
-      // target state entry action
-    }
-    break;
+      temp_control->on_failure_cleared();
+
+    delay(time_delay);
+    count_heating++;
+    applience_time_count++;
   }
-  delay(time_delay);
-  count_heating++;
-  }
+
+  delete temp_control;
 }
+
