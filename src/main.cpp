@@ -13,10 +13,16 @@ State state = State::Idle; // Define state variable and set the initial state
 
 bool failure, ok, too_cool, too_hot, failure_cleared;
 
+int time_delay = 200;
+unsigned long count_heating = 1*60*1000/time_delay; // so it can start heating as soon as the program is run
+
+
 int main()
 {
+  init(); // Sets up Timer0 so millis()/micros()/delay() actually work, since we bypass the framework's own main()
   Serial.begin(9600);
   sei(); // Interrupts must be enabled for Serial receive buffers to work
+
 
   while (1)
   {
@@ -54,8 +60,16 @@ int main()
       // State::A exit action
       // event1 transition action
       // set new target state
-      Serial.println("Idle -> Heating");
-      state = State::Heating;
+      if (count_heating*time_delay/1000 >= 1*60)
+      {
+        Serial.println("Idle -> Heating");
+        state = State::Heating;
+      }
+      else
+      {
+        Serial.println("Too cool ignored: heater must stay off for 5 minutes before restarting");
+      }
+
       // target state entry action
     }
     
@@ -74,6 +88,7 @@ int main()
     if (ok)
     {
       // State::A exit action
+      count_heating = 0;
       // event1 transition action
       // set new target state
       Serial.println("Heating -> Idle");
@@ -84,6 +99,7 @@ int main()
     if (failure)
     {
       // State::A exit action
+      count_heating = 0;
       // event1 transition action
       // set new target state
       Serial.println("Heating -> Failure");
@@ -126,5 +142,7 @@ int main()
     }
     break;
   }
+  delay(time_delay);
+  count_heating++;
   }
 }

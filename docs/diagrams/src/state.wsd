@@ -13,7 +13,7 @@ Cooling --> Failure : failure
 Failure -up-> Idle : failure cleared
 
 Heating : entry / startup
-Heating : exit / shutDown
+Heating : exit / shutDown, restartTimer
 
 Cooling : entry / startup
 Cooling : exit / shutDown
